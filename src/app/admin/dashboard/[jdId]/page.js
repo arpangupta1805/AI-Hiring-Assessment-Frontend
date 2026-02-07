@@ -253,7 +253,7 @@ export default function CandidateListPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-sm text-[var(--text-primary)]">
-                                                    {candidate.totalScore ? `${candidate.totalScore}%` : "—"}
+                                                    {candidate.evaluation?.percentage ? `${candidate.evaluation.percentage.toFixed(1)}%` : "—"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">

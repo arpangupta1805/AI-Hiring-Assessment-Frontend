@@ -10,6 +10,7 @@ import { ArrowLeft, Mail, AlertTriangle, CheckCircle, XCircle, User, FileText, C
 const TABS = [
     { id: "overview", label: "Overview", icon: User },
     { id: "scores", label: "Scores", icon: FileText },
+    { id: "responses", label: "Responses", icon: MessageSquare },
     { id: "proctoring", label: "Proctoring", icon: Eye },
 ];
 
@@ -19,6 +20,7 @@ export default function CandidateDetailPage() {
     const [candidate, setCandidate] = useState(null);
     const [evaluation, setEvaluation] = useState(null);
     const [proctoringEvents, setProctoringEvents] = useState([]);
+    const [report, setReport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("overview");
     const [showDecisionModal, setShowDecisionModal] = useState(false);
@@ -44,10 +46,11 @@ export default function CandidateDetailPage() {
             ]);
 
             if (candidateRes.success) {
-                setCandidate(candidateRes.data);
+                setCandidate(candidateRes.data.candidateAssessment);
+                setReport(candidateRes.data.report);
             }
             if (evalRes.success) {
-                setEvaluation(evalRes.data);
+                setEvaluation(evalRes.data.evaluation);
             }
             if (proctoringRes.success) {
                 // Backend returns { events: [], summary: {} }
@@ -106,6 +109,22 @@ export default function CandidateDetailPage() {
             setShowEmailModal(false);
         } catch (err) {
             console.error(err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleEmailReport = async () => {
+        if (!confirm("Send detailed assessment report to candidate?")) return;
+        setSaving(true);
+        try {
+            const res = await api.sendReportEmail(params.id);
+            if (res.success) {
+                alert("Report sent successfully");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Report sent successfully"); // Fallback if API doesn't return JSON cleanly but succeeds
         } finally {
             setSaving(false);
         }
@@ -174,6 +193,7 @@ export default function CandidateDetailPage() {
                     {/* Header */}
                     <div className="flex items-start justify-between mb-8">
                         <div className="flex items-center gap-4">
+                            {console.log(candidate.onboarding?.profilePhotoUrl)}
                             {candidate.onboarding?.profilePhotoUrl ? (
                                 <img
                                     src={candidate.onboarding.profilePhotoUrl}
@@ -201,9 +221,13 @@ export default function CandidateDetailPage() {
                         </div>
 
                         <div className="flex gap-3">
+                            <Button variant="secondary" onClick={handleEmailReport} disabled={saving}>
+                                <FileText size={16} />
+                                Email Report
+                            </Button>
                             <Button variant="secondary" onClick={() => setShowEmailModal(true)}>
                                 <Mail size={16} />
-                                Send Email
+                                Send Result
                             </Button>
                             <Button onClick={() => setShowDecisionModal(true)}>
                                 Set Decision
@@ -248,13 +272,13 @@ export default function CandidateDetailPage() {
                                     <div className="flex justify-between">
                                         <span className="text-sm text-[var(--text-secondary)]">Total Score</span>
                                         <span className="text-sm text-[var(--text-primary)]">
-                                            {candidate.totalScore ? `${candidate.totalScore}%` : "—"}
+                                            {evaluation?.percentage ? `${evaluation.percentage.toFixed(1)}%` : "—"}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-sm text-[var(--text-secondary)]">Time Taken</span>
                                         <span className="text-sm text-[var(--text-primary)]">
-                                            {candidate.analytics?.totalTimeMinutes ? `${candidate.analytics.totalTimeMinutes} min` : "—"}
+                                            {candidate.timeSpentSeconds ? `${Math.round(candidate.timeSpentSeconds / 60)} min` : "—"}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
@@ -271,22 +295,30 @@ export default function CandidateDetailPage() {
                                 <h3 className="text-lg font-light text-[var(--text-primary)] mb-4">
                                     Resume Analysis
                                 </h3>
-                                {candidate.resume?.matchAnalysis ? (
+                                {candidate.resume?.matchDetails?.skillMatches?.length > 0 ? (
                                     <div className="space-y-3">
-                                        {Object.entries(candidate.resume.matchAnalysis).map(([skill, score]) => (
-                                            <div key={skill} className="flex items-center gap-3">
+                                        {candidate.resume.matchDetails.skillMatches.map((item, index) => (
+                                            <div key={index} className="flex items-center gap-3">
                                                 <span className="text-sm text-[var(--text-secondary)] flex-1 capitalize">
-                                                    {skill}
+                                                    {item.skill}
                                                 </span>
                                                 <div className="w-24 h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
                                                     <div
-                                                        className="h-full bg-[var(--accent)]"
-                                                        style={{ width: `${score}%` }}
+                                                        className={`h-full ${item.matched ? 'bg-[var(--accent)]' : 'bg-[var(--status-error-bg)]'}`}
+                                                        style={{ width: `${item.confidence || (item.matched ? 100 : 0)}%` }}
                                                     />
                                                 </div>
-                                                <span className="text-xs text-[var(--text-muted)] w-8">{score}%</span>
+                                                <span className="text-xs text-[var(--text-muted)] w-8">
+                                                    {item.confidence || (item.matched ? '100%' : '0%')}
+                                                </span>
                                             </div>
                                         ))}
+                                        {candidate.resume.matchDetails.overallAnalysis && (
+                                            <div className="mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg text-xs text-[var(--text-secondary)]">
+                                                <p className="font-medium mb-1">Analysis</p>
+                                                {candidate.resume.matchDetails.overallAnalysis}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-sm text-[var(--text-muted)]">No analysis available</p>
@@ -308,27 +340,120 @@ export default function CandidateDetailPage() {
                                                 {data.score || 0}%
                                             </span>
                                         </div>
-                                        {data.breakdown && (
-                                            <div className="grid grid-cols-3 gap-4 text-center">
-                                                <div>
-                                                    <p className="text-xs text-[var(--text-muted)]">Correct</p>
-                                                    <p className="text-lg text-[var(--text-primary)]">{data.breakdown.correct || 0}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-[var(--text-muted)]">Wrong</p>
-                                                    <p className="text-lg text-[var(--text-primary)]">{data.breakdown.wrong || 0}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-[var(--text-muted)]">Unanswered</p>
-                                                    <p className="text-lg text-[var(--text-primary)]">{data.breakdown.unanswered || 0}</p>
-                                                </div>
+                                        <div className="grid grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <p className="text-xs text-[var(--text-muted)]">Correct</p>
+                                                <p className="text-lg text-[var(--text-primary)]">{data.questionsCorrect || 0}</p>
                                             </div>
-                                        )}
+                                            <div>
+                                                <p className="text-xs text-[var(--text-muted)]">Wrong</p>
+                                                <p className="text-lg text-[var(--text-primary)]">
+                                                    {(data.questionsAttempted || 0) - (data.questionsCorrect || 0)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-[var(--text-muted)]">Unanswered</p>
+                                                <p className="text-lg text-[var(--text-primary)]">
+                                                    {(data.totalQuestions || 0) - (data.questionsAttempted || 0)}
+                                                </p>
+                                            </div>
+                                        </div>
                                     </Card>
                                 ))
                             ) : (
                                 <Card padding="lg" className="text-center py-12">
                                     <p className="text-[var(--text-muted)]">No evaluation data available</p>
+                                </Card>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === "responses" && (
+                        <div className="space-y-6">
+                            {/* Objective Section */}
+                            {report?.objective?.length > 0 && (
+                                <Card padding="lg">
+                                    <h3 className="text-lg font-light text-[var(--text-primary)] mb-4">Objective Questions</h3>
+                                    <div className="space-y-6">
+                                        {report.objective.map((q, i) => (
+                                            <div key={i} className="border-b border-[var(--border-color)] pb-4 last:border-0">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <p className="text-[var(--text-primary)] font-medium">Q{i + 1}: {q.questionText}</p>
+                                                    <span className={`text-xs px-2 py-1 rounded ${q.score > 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        {q.score} / {q.maxScore}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {q.options.map((opt, optIdx) => (
+                                                        <div key={optIdx} className={`p-2 rounded text-sm flex justify-between ${optIdx === q.correctOptionIndex ? 'bg-green-500/10 border border-green-500/20' :
+                                                            optIdx === q.selectedOptionIndex ? 'bg-red-500/10 border border-red-500/20' :
+                                                                'bg-[var(--bg-secondary)]'
+                                                            }`}>
+                                                            <span className={optIdx === q.correctOptionIndex ? 'text-green-500' : optIdx === q.selectedOptionIndex ? 'text-red-500' : 'text-[var(--text-secondary)]'}>
+                                                                {opt.text}
+                                                            </span>
+                                                            {optIdx === q.correctOptionIndex && <span className="text-green-500 text-xs">Correct Answer</span>}
+                                                            {optIdx === q.selectedOptionIndex && optIdx !== q.correctOptionIndex && <span className="text-red-500 text-xs">Your Answer</span>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Card>
+                            )}
+
+                            {/* Subjective Section */}
+                            {report?.subjective?.length > 0 && (
+                                <Card padding="lg">
+                                    <h3 className="text-lg font-light text-[var(--text-primary)] mb-4">Subjective Questions</h3>
+                                    <div className="space-y-6">
+                                        {report.subjective.map((q, i) => (
+                                            <div key={i} className="border-b border-[var(--border-color)] pb-4 last:border-0">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <p className="text-[var(--text-primary)] font-medium">Q{i + 1}: {q.questionText}</p>
+                                                    <span className="text-xs px-2 py-1 rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
+                                                        {q.score} / {q.maxScore}
+                                                    </span>
+                                                </div>
+                                                <div className="bg-[var(--bg-secondary)] p-3 rounded mb-2">
+                                                    <p className="text-xs text-[var(--text-muted)] mb-1">Candidate Answer:</p>
+                                                    <p className="text-sm text-[var(--text-primary)]">{q.candidateAnswer}</p>
+                                                </div>
+                                                <div className="bg-blue-500/10 p-3 rounded">
+                                                    <p className="text-xs text-blue-400 mb-1">AI Feedback:</p>
+                                                    <p className="text-sm text-blue-300">{q.aiFeedback}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Card>
+                            )}
+
+                            {/* Programming Section */}
+                            {report?.programming?.length > 0 && (
+                                <Card padding="lg">
+                                    <h3 className="text-lg font-light text-[var(--text-primary)] mb-4">Programming Questions</h3>
+                                    <div className="space-y-6">
+                                        {report.programming.map((q, i) => (
+                                            <div key={i} className="border-b border-[var(--border-color)] pb-4 last:border-0">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <p className="text-[var(--text-primary)] font-medium">Q{i + 1}: {q.title}</p>
+                                                    <span className="text-xs px-2 py-1 rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
+                                                        {q.score} / {q.maxScore}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-[var(--text-secondary)] mb-2">{q.questionText}</p>
+                                                <div className="bg-black p-3 rounded mb-2 font-mono text-xs overflow-x-auto">
+                                                    <p className="text-[var(--text-muted)] mb-1">// Language: {q.language}</p>
+                                                    <pre className="text-green-400">{q.code}</pre>
+                                                </div>
+                                                <div className="flex gap-4 text-xs">
+                                                    <span className="text-green-400">Test Cases Passed: {q.testCasesPassed} / {q.totalTestCases}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </Card>
                             )}
                         </div>

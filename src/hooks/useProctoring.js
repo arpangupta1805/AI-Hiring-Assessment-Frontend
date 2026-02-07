@@ -145,10 +145,11 @@ export function useProctoring({ candidateAssessmentId, enabled = true }) {
             const persons = predictions.filter(p => p.class === "person");
             if (persons.length > 1) {
                 console.warn("[Proctoring AI] Multiple faces/people detected!");
+                const screenshot = await captureScreenshot();
                 logEvent("multiple_faces", {
                     count: persons.length,
                     confidence: persons[0].score
-                }, "high");
+                }, "high", screenshot);
             } else if (persons.length === 0) {
                 // Optional: log "no_face" if you want to be strict
                 // logEvent("no_face", {}, "medium");
@@ -158,10 +159,11 @@ export function useProctoring({ candidateAssessmentId, enabled = true }) {
             const devices = predictions.filter(p => ["cell phone", "laptop", "tablet"].includes(p.class));
             if (devices.length > 0) {
                 console.warn("[Proctoring AI] Electronic device detected!", devices[0].class);
+                const screenshot = await captureScreenshot();
                 logEvent("device_detected", {
                     device: devices[0].class,
                     confidence: devices[0].score
-                }, "high");
+                }, "high", screenshot);
             }
 
         } catch (err) {

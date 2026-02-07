@@ -484,6 +484,12 @@ class ApiClient {
         return this.request(`/api/admin/export/${jdId}/csv`);
     }
 
+    async sendReportEmail(candidateAssessmentId) {
+        return this.request(`/api/admin/candidate/${candidateAssessmentId}/email-report`, {
+            method: 'POST'
+        });
+    }
+
     // =========================================================================
     // EVALUATION
     // =========================================================================

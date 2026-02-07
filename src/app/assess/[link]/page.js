@@ -120,7 +120,7 @@ export default function AssessmentEntryPage() {
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext("2d");
             ctx.drawImage(video, 0, 0);
-            const data = canvas.toDataURL("image/jpeg", 0.8);
+            const data = canvas.toDataURL("image/jpeg", 0.9);
             setPhotoData(data);
 
             // Stop camera
@@ -213,16 +213,16 @@ export default function AssessmentEntryPage() {
                         <div key={s} className="flex items-center">
                             <div
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${STEPS.indexOf(step) >= index
-                                        ? "bg-[var(--accent)] text-[var(--accent-text)]"
-                                        : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
+                                    ? "bg-[var(--accent)] text-[var(--accent-text)]"
+                                    : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
                                     }`}
                             >
                                 {STEPS.indexOf(step) > index ? <Check size={16} /> : index + 1}
                             </div>
                             {index < STEPS.length - 1 && (
                                 <div className={`w-8 h-0.5 ${STEPS.indexOf(step) > index
-                                        ? "bg-[var(--accent)]"
-                                        : "bg-[var(--border-default)]"
+                                    ? "bg-[var(--accent)]"
+                                    : "bg-[var(--border-default)]"
                                     }`} />
                             )}
                         </div>
