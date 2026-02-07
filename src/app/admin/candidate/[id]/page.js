@@ -448,9 +448,6 @@ export default function CandidateDetailPage() {
                                                     <p className="text-[var(--text-muted)] mb-1">// Language: {q.language}</p>
                                                     <pre className="text-green-400">{q.code}</pre>
                                                 </div>
-                                                <div className="flex gap-4 text-xs">
-                                                    <span className="text-green-400">Test Cases Passed: {q.testCasesPassed} / {q.totalTestCases}</span>
-                                                </div>
                                             </div>
                                         ))}
                                     </div>

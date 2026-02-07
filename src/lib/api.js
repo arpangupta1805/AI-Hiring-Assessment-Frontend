@@ -68,6 +68,7 @@ class ApiClient {
             isFormData = false,
             useSession = false,
             silent = false,
+            responseType = 'json', // 'json', 'blob', 'text'
         } = options;
 
         const config = {
@@ -82,10 +83,17 @@ class ApiClient {
 
         try {
             const response = await fetch(`${this.baseUrl}${endpoint}`, config);
-            const data = await response.json();
 
             if (!response.ok) {
-                const errorMessage = data.error || data.message || (data.errors ? JSON.stringify(data.errors) : "Request failed");
+                // Try to parse error message as JSON, fallback to text
+                let errorMessage = "Request failed";
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorData.message || (errorData.errors ? JSON.stringify(errorData.errors) : errorMessage);
+                } catch (e) {
+                    errorMessage = await response.text() || response.statusText;
+                }
+
                 if (silent) {
                     console.warn(`API Warning [${method} ${endpoint}]:`, errorMessage);
                     return { success: false, error: errorMessage };
@@ -93,7 +101,14 @@ class ApiClient {
                 throw new Error(errorMessage);
             }
 
-            return data;
+            if (responseType === 'blob') {
+                return await response.blob();
+            }
+            if (responseType === 'text') {
+                return await response.text();
+            }
+
+            return await response.json();
         } catch (error) {
             if (silent) {
                 console.warn(`API Warning [${method} ${endpoint}]:`, error.message);
@@ -481,7 +496,21 @@ class ApiClient {
     }
 
     async exportCSV(jdId) {
-        return this.request(`/api/admin/export/${jdId}/csv`);
+        const blob = await this.request(`/api/admin/export/${jdId}/csv`, {
+            responseType: 'blob'
+        });
+
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `candidates-${jdId}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        return { success: true };
     }
 
     async sendReportEmail(candidateAssessmentId) {

@@ -6,6 +6,7 @@
 export function Input({
     label,
     error,
+    helperText, // Destructure to filter out from ...props
     type = "text",
     className = "",
     ...props
