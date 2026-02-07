@@ -64,7 +64,8 @@ export default function CandidateDetailPage() {
         setSaving(true);
         try {
             // If decision is cheating, we treat it as fail but might log flags
-            const finalDecision = decision === "cheating" ? "fail" : decision;
+            // Backend expects uppercase decision (PASS, FAIL)
+            const finalDecision = decision === "cheating" ? "FAIL" : decision.toUpperCase();
             await api.setAdminDecision(params.id, finalDecision, decisionNotes);
 
             // If cheating or fail, we might want to send email immediately with flags
@@ -296,8 +297,8 @@ export default function CandidateDetailPage() {
 
                     {activeTab === "scores" && (
                         <div className="space-y-6">
-                            {evaluation?.sectionScores ? (
-                                Object.entries(evaluation.sectionScores).map(([section, data]) => (
+                            {evaluation?.sections ? (
+                                Object.entries(evaluation.sections).map(([section, data]) => (
                                     <Card key={section} padding="lg">
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 className="text-lg font-light text-[var(--text-primary)] capitalize">
